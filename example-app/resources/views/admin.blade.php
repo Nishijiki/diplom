@@ -200,9 +200,10 @@
             margin-top: 25px;
             border-radius: 10px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            max-width: 900px;
+            max-width: 1200px;
             margin-left: auto;
             margin-right: auto;
+            width: 95%;
         }
         .admin-panel h2 {
             font-size: 24px;
@@ -282,12 +283,13 @@
         }
 
         .table-content {
-            max-width: 700px;
+            max-width: 1100px;
             margin: 25px auto;
             padding: 25px 30px;
             background-color: #fff;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
             border-radius: 12px;
+            width: 95%;
         }
 
         .table-content h3 {
@@ -347,6 +349,24 @@
                 margin-right: 0;
                 flex: 1 1 100%;
                 text-align: center;
+            }
+
+            .admin-panel,
+            .table-content,
+            .modal-content {
+                width: 95%;
+                padding: 15px;
+            }
+
+            .requests-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .requests-table th,
+            .requests-table td {
+                min-width: 120px;
             }
         }
 
@@ -489,36 +509,69 @@
             }
         }
 
-        #crop-modal {
+        .crop-modal {
+            display: none;
             position: fixed;
-            top: 0;
+            z-index: 9999;
             left: 0;
+            top: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.9);
+            overflow: auto;
+        }
+
+        .crop-container {
+            position: relative;
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .crop-area {
+            max-height: 70vh;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .crop-buttons {
             display: flex;
             justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        #crop-modal img {
-            max-width: 80%;
-            max-height: 80%;
-        }
-
-        #crop-modal button {
+            gap: 10px;
             margin-top: 20px;
+        }
+
+        .crop-button {
             padding: 10px 20px;
-            background-color: #fff;
             border: none;
+            border-radius: 4px;
             cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        .crop-save {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .crop-cancel {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .crop-button:hover {
+            opacity: 0.9;
         }
 
         .requests-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            table-layout: fixed;
         }
 
         .requests-table th,
@@ -526,6 +579,8 @@
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .requests-table th {
@@ -606,8 +661,8 @@
     margin: 10% auto;
     padding: 20px;
     border-radius: 8px;
-    width: 90%;
-    max-width: 600px;
+    width: 95%;
+    max-width: 800px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
@@ -621,6 +676,19 @@
 .close-modal:hover,
 .close-modal:focus {
     color: #000;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
 }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
@@ -673,27 +741,38 @@ function editUser(userId) {
 
 function deleteUser(userId) {
     if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
-        // Отправка AJAX запроса на удаление пользователя
+        // Получаем CSRF токен
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
         fetch(`/admin/users/${userId}`, {
             method: 'DELETE',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                // Удаляем строку из таблицы
-                document.querySelector(`tr[data-user-id="${userId}"]`).remove();
+                // Находим строку таблицы с пользователем и удаляем её
+                const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+                if (userRow) {
+                    userRow.remove();
+                }
                 alert('Пользователь успешно удален');
             } else {
-                alert(data.message || 'Ошибка при удалении пользователя');
+                throw new Error(data.message || 'Ошибка при удалении пользователя');
             }
         })
         .catch(error => {
             console.error('Ошибка:', error);
-            alert('Произошла ошибка при удалении пользователя');
+            alert(error.message || 'Произошла ошибка при удалении пользователя');
         });
     }
 }
@@ -721,9 +800,29 @@ function editPost(id) {
 
 function deletePost(id) {
     if (confirm('Вы уверены, что хотите удалить эту новость?')) {
-        // Здесь будет логика удаления новости
-        alert('Удаление новости #' + id);
-        // В будущем здесь можно добавить AJAX-запрос на удаление
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        fetch(`/admin/news/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Новость успешно удалена');
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Ошибка при удалении новости');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert(error.message);
+        });
     }
 }
 
@@ -767,20 +866,26 @@ document.addEventListener("DOMContentLoaded", function () {
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     imageToCrop.src = e.target.result;
-                    cropModal.style.display = "flex";
+                    cropModal.style.display = "block";
 
                     if (cropper) {
                         cropper.destroy();
                     }
 
-                    // Инициализация Cropper.js
+                    // Инициализация Cropper.js с улучшенными настройками
                     cropper = new Cropper(imageToCrop, {
                         aspectRatio: 1,
-                        viewMode: 1,
+                        viewMode: 2,
+                        dragMode: 'move',
                         autoCropArea: 1,
-                        background: false,
-                        zoomable: true,
-                        cropBoxResizable: true
+                        restore: false,
+                        guides: true,
+                        center: true,
+                        highlight: false,
+                        cropBoxMovable: true,
+                        cropBoxResizable: true,
+                        toggleDragModeOnDblclick: false,
+                        background: true
                     });
                 };
                 reader.readAsDataURL(file);
@@ -797,16 +902,19 @@ document.addEventListener("DOMContentLoaded", function () {
         const canvas = cropper.getCroppedCanvas({
             width: 300,
             height: 300,
-            fillColor: '#fff'
+            fillColor: '#fff',
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
         });
 
         canvas.toBlob(function (blob) {
             const formData = new FormData();
-            formData.append("avatar", blob, "avatar.png");
+            formData.append("avatar", blob, "avatar.jpg");
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (!csrfToken) {
                 console.error("CSRF token not found!");
+                alert("Ошибка: CSRF токен не найден");
                 return;
             }
 
@@ -818,17 +926,22 @@ document.addEventListener("DOMContentLoaded", function () {
             fetch("/update-avatar", {
                 method: "POST",
                 headers: {
-                    "X-CSRF-TOKEN": csrfToken,
+                    "X-CSRF-TOKEN": csrfToken
                 },
-                body: formData,
+                body: formData
             })
             .then(response => {
+                console.log('Response status:', response.status);
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    return response.text().then(text => {
+                        console.error('Error response:', text);
+                        throw new Error('Network response was not ok');
+                    });
                 }
                 return response.json();
             })
             .then(data => {
+                console.log('Success response:', data);
                 if (data.success) {
                     // Обновляем превью аватара с временной меткой для избежания кэширования
                     const timestamp = new Date().getTime();
@@ -856,7 +969,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     cropper = null;
                 }
             });
-        }, 'image/jpeg', 0.9); // Конвертируем в JPEG с качеством 0.9
+        }, 'image/jpeg', 0.95);
     });
 
     // Отмена кропа
@@ -868,17 +981,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Стилизация модального окна для кропа
-    cropModal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-    cropModal.style.zIndex = '1000';
-    
-    // Стилизация контейнера изображения для кропа
-    const cropContainer = document.createElement('div');
-    cropContainer.style.maxWidth = '90%';
-    cropContainer.style.maxHeight = '90vh';
-    cropContainer.style.margin = 'auto';
-    imageToCrop.style.maxWidth = '100%';
-    imageToCrop.style.maxHeight = '80vh';
+    // Закрытие модального окна при клике вне его
+    cropModal?.addEventListener("click", function (e) {
+        if (e.target === cropModal) {
+            cancelCropButton.click();
+        }
+    });
 });
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -886,72 +994,88 @@ document.addEventListener("DOMContentLoaded", function () {
     const closeModalButton = document.querySelector(".close-modal");
     const form = document.getElementById("document-form");
 
-    // Функция для открытия модального окна
+    // Функция для открытия модального окна для создания
     window.addDocument = function () {
         modal.style.display = "block";
         form.reset();
-        form.action = "/admin/documents"; // маршрут для создания
+        form.action = "/admin/documents";
         document.getElementById("modal-title").textContent = "Добавить документ";
         document.getElementById("submit-document-btn").textContent = "Добавить";
+        form.querySelector('input[name="_method"]').value = 'POST';
     };
 
     // Функция для редактирования документа
     window.editDocument = function (documentData) {
         modal.style.display = "block";
-
+        form.reset();
+        
+        // Устанавливаем метод и путь
         form.action = `/admin/documents/${documentData.id}`;
-        form.querySelector("#document-id").value = documentData.id;
-        form.querySelector("#type").value = documentData.type;
-        form.querySelector("#number").value = documentData.number;
-        form.querySelector("#date").value = documentData.date;
-        form.querySelector("#title").value = documentData.title;
-        form.querySelector("#description").value = documentData.description;
+        form.querySelector('input[name="_method"]').value = 'PUT';
+        
+        // Заполняем форму данными
+        document.getElementById("type").value = documentData.type;
+        document.getElementById("number").value = documentData.number;
+        document.getElementById("date").value = documentData.date;
+        document.getElementById("title").value = documentData.title;
+        document.getElementById("description").value = documentData.description;
 
         document.getElementById("modal-title").textContent = "Редактировать документ";
         document.getElementById("submit-document-btn").textContent = "Сохранить изменения";
     };
 
+    // Обработка отправки формы
+    form.onsubmit = async function (e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const method = formData.get('_method');
+        
+        // Преобразуем FormData в обычный объект
+        const data = {};
+        formData.forEach((value, key) => {
+            data[key] = value;
+        });
+        
+        try {
+            const response = await fetch(this.action, {
+                method: method,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            console.log('Response:', result); // Для отладки
+
+            if (result.success) {
+                alert(result.message);
+                window.location.reload();
+            } else {
+                alert(result.message || "Ошибка при сохранении документа");
+            }
+        } catch (error) {
+            console.error("Ошибка:", error);
+            alert("Произошла ошибка при сохранении документа");
+        }
+    };
+
     // Закрытие модального окна
     closeModalButton.onclick = function () {
         modal.style.display = "none";
+        form.reset();
     };
 
     window.onclick = function (event) {
         if (event.target === modal) {
             modal.style.display = "none";
+            form.reset();
         }
     };
 });
-
-form.onsubmit = async function (e) {
-    e.preventDefault();
-
-    const formData = new FormData(form);
-    const url = this.action;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            },
-            body: formData,
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert(result.message);
-            location.reload(); // Перезагружаем страницу после сохранения
-            modal.style.display = "none";
-        } else {
-            alert(result.message || "Ошибка при сохранении документа");
-        }
-    } catch (error) {
-        console.error("Ошибка:", error);
-        alert("Произошла ошибка при сохранении документа.");
-    }
-};
 </script>
 <header>
     <div class="logo">
@@ -1003,19 +1127,23 @@ form.onsubmit = async function (e) {
     <h1>Здравствуйте, {{ Auth::user()->name }}!</h1>
 
     <div class="avatar-container">
-    <img src="{{ Auth::user()->avatar ? asset('storage/' . Auth::user()->avatar) : '/img/default-avatar.png' }}" 
-         alt="Аватар пользователя" 
-         class="avatar" 
-         id="avatar-preview">
-    <p>Аватар пользователя</p>
-    <button class="change-avatar-button" id="change-avatar-button">Сменить аватар</button>
-</div>
-<div id="crop-modal" style="display: none;">
-    <div>
-        <img id="image-to-crop" src="" alt="Изображение для кропа">
+        <img src="{{ Auth::user()->avatar ? Storage::url(Auth::user()->avatar) : asset('img/default-avatar.png') }}" 
+             alt="Аватар пользователя" 
+             class="avatar" 
+             id="avatar-preview">
+        <p>Аватар пользователя</p>
+        <button class="change-avatar-button" id="change-avatar-button">Сменить аватар</button>
     </div>
-    <button id="save-cropped-image">Сохранить</button>
-    <button id="cancel-crop">Отмена</button>
+<div id="crop-modal" class="crop-modal">
+    <div class="crop-container">
+        <div class="crop-area">
+            <img id="image-to-crop" src="" alt="Изображение для кропа" style="max-width: 100%;">
+        </div>
+        <div class="crop-buttons">
+            <button id="save-cropped-image" class="crop-button crop-save">Сохранить</button>
+            <button id="cancel-crop" class="crop-button crop-cancel">Отмена</button>
+        </div>
+    </div>
 </div>
 <form id="avatar-form" action="/update-avatar" method="POST" enctype="multipart/form-data" style="display: none;">
     @csrf
@@ -1053,7 +1181,7 @@ form.onsubmit = async function (e) {
                     </thead>
                     <tbody>
                         @foreach($users as $user)
-                            <tr>
+                            <tr data-user-id="{{ $user->id }}">
                                 <td>{{ $user->id }}</td>
                                 <td>{{ $user->name }}</td>
                                 <td>{{ $user->email }}</td>
@@ -1131,26 +1259,38 @@ form.onsubmit = async function (e) {
         <h3 id="modal-title">Добавить документ</h3>
         <form id="document-form" method="POST">
             @csrf
-            @method('POST')
-
+            <input type="hidden" name="_method" value="POST">
             <input type="hidden" id="document-id" name="id">
 
-            <label for="type">Тип документа:</label>
-            <input type="text" id="type" name="type" required>
+            <div class="form-group">
+                <label for="type">Тип документа:</label>
+                <input type="text" id="type" name="type" class="form-control" required>
+            </div>
 
-            <label for="number">Номер:</label>
-            <input type="text" id="number" name="number" required>
+            <div class="form-group">
+                <label for="number">Номер:</label>
+                <input type="text" id="number" name="number" class="form-control" required>
+            </div>
 
-            <label for="date">Дата:</label>
-            <input type="date" id="date" name="date" required>
+            <div class="form-group">
+                <label for="date">Дата:</label>
+                <input type="date" id="date" name="date" class="form-control" required>
+            </div>
 
-            <label for="title">Название:</label>
-            <input type="text" id="title" name="title" required>
+            <div class="form-group">
+                <label for="title">Название:</label>
+                <input type="text" id="title" name="title" class="form-control" required>
+            </div>
 
-            <label for="description">Описание:</label>
-            <textarea id="description" name="description" rows="4" required></textarea>
+            <div class="form-group">
+                <label for="description">Описание:</label>
+                <textarea id="description" name="description" class="form-control" rows="4" required></textarea>
+            </div>
 
-            <button type="submit" id="submit-document-btn">Сохранить</button>
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" id="submit-document-btn" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary" onclick="document.querySelector('.close-modal').click()">Отмена</button>
+            </div>
         </form>
     </div>
 </div>
@@ -1226,7 +1366,7 @@ form.onsubmit = async function (e) {
                                     @endif
                                 </td>
                                 <td>
-                                    <button onclick="editPost({{ $post->id }})" class="btn btn-info">Редактировать</button>
+                                    <button onclick='editPost(@json($post))' class="btn btn-info">Редактировать</button>
                                     <button onclick="deletePost({{ $post->id }})" class="btn btn-danger">Удалить</button>
                                 </td>
                             </tr>
@@ -1255,9 +1395,9 @@ form.onsubmit = async function (e) {
                             <th>Имя</th>
                             <th>Email</th>
                             <th>Телефон</th>
-                            <th>Компания</th>
                             <th>Статус</th>
                             <th>Сообщение</th>
+                            <th>Действия</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1267,7 +1407,6 @@ form.onsubmit = async function (e) {
                                 <td>{{ $request->name }}</td>
                                 <td>{{ $request->email }}</td>
                                 <td>{{ $request->phone }}</td>
-                                <td>{{ $request->company ?? 'Не указана' }}</td>
                                 <td>
                                     <form action="{{ route('investor.update-status', $request->id) }}" 
                                           method="POST" 
@@ -1282,7 +1421,10 @@ form.onsubmit = async function (e) {
                                         </select>
                                     </form>
                                 </td>
-                                <td>{{ Str::limit($request->message, 50) }}</td>
+                                <td>{{ $request->message }}</td>
+                                <td>
+                                    <button onclick="showInvestorDetails({{ json_encode($request) }})" class="btn btn-info">Подробнее</button>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -1298,6 +1440,479 @@ form.onsubmit = async function (e) {
     </div>
 </div>
 
+<div id="user-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeUserModal()">&times;</span>
+        <h3 id="user-modal-title">Редактировать пользователя</h3>
+        <form id="user-form" method="POST">
+            @csrf
+            <input type="hidden" name="_method" value="POST">
+            <input type="hidden" id="user-id" name="id">
+
+            <div class="form-group">
+                <label for="user-name">Имя:</label>
+                <input type="text" id="user-name" name="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="user-email">Email:</label>
+                <input type="email" id="user-email" name="email" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="user-phone">Телефон:</label>
+                <input type="tel" id="user-phone" name="phone" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="user-role">Роль:</label>
+                <select id="user-role" name="role" class="form-control" required>
+                    <option value="user">Пользователь</option>
+                    <option value="admin">Администратор</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="user-password">Новый пароль (оставьте пустым, если не хотите менять):</label>
+                <input type="password" id="user-password" name="password" class="form-control">
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" id="submit-user-btn" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Функции для работы с пользователями
+document.addEventListener("DOMContentLoaded", function() {
+    const userModal = document.getElementById("user-modal");
+    const userForm = document.getElementById("user-form");
+    const closeModalButton = userModal.querySelector(".close-modal");
+
+    window.editUser = function(userId) {
+        // Получаем данные пользователя
+        fetch(`/admin/users/${userId}`)
+            .then(response => response.json())
+            .then(userData => {
+                console.log('Данные пользователя:', userData);
+                userModal.style.display = "block";
+                userForm.reset();
+
+                // Устанавливаем путь для формы
+                userForm.action = `/admin/users/${userId}`;
+                
+                // Заполняем форму данными
+                document.getElementById("user-id").value = userData.id;
+                document.getElementById("user-name").value = userData.name;
+                document.getElementById("user-email").value = userData.email;
+                document.getElementById("user-phone").value = userData.phone || '';
+                document.getElementById("user-role").value = userData.role;
+                
+                // Очищаем поле пароля
+                document.getElementById("user-password").value = '';
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Ошибка при получении данных пользователя');
+            });
+    };
+
+    window.closeUserModal = function() {
+        userModal.style.display = "none";
+        userForm.reset();
+    };
+
+    // Закрытие по клику на крестик
+    closeModalButton.onclick = closeUserModal;
+
+    // Закрытие по клику вне модального окна
+    window.onclick = function(event) {
+        if (event.target === userModal) {
+            closeUserModal();
+        }
+    };
+
+    // Обработка отправки формы
+    userForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const userId = document.getElementById("user-id").value;
+        
+        try {
+            const response = await fetch(`/admin/users/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(result.message);
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Ошибка при сохранении данных пользователя');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert(error.message);
+        }
+    });
+});
+</script>
+
+<!-- Модальное окно для инвесторских заявок -->
+<div id="investor-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeInvestorModal()">&times;</span>
+        <h3 id="investor-modal-title">Детали заявки инвестора</h3>
+        <form id="investor-form" method="POST">
+            @csrf
+            <input type="hidden" name="_method" value="PUT">
+            <input type="hidden" id="investor-id" name="id">
+
+            <div class="form-group">
+                <label for="investor-name">Имя:</label>
+                <input type="text" id="investor-name" name="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="investor-email">Email:</label>
+                <input type="email" id="investor-email" name="email" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="investor-phone">Телефон:</label>
+                <input type="tel" id="investor-phone" name="phone" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="investor-message">Сообщение:</label>
+                <textarea id="investor-message" name="message" class="form-control" rows="4" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="investor-status">Статус:</label>
+                <select id="investor-status" name="status" class="form-control" required>
+                    <option value="new">Новая</option>
+                    <option value="in_progress">В работе</option>
+                    <option value="completed">Завершена</option>
+                    <option value="rejected">Отклонена</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" id="submit-investor-btn" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-danger" onclick="deleteInvestorRequest()">Удалить</button>
+                <button type="button" class="btn btn-secondary" onclick="closeInvestorModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Функции для работы с заявками инвесторов
+document.addEventListener("DOMContentLoaded", function() {
+    const investorModal = document.getElementById("investor-modal");
+    const investorForm = document.getElementById("investor-form");
+    let currentInvestorId = null;
+
+    window.showInvestorDetails = function(investorData) {
+        console.log('Данные заявки:', investorData);
+        investorModal.style.display = "block";
+        investorForm.reset();
+        currentInvestorId = investorData.id;
+
+        // Устанавливаем путь для формы
+        investorForm.action = `/admin/investor-requests/${investorData.id}`;
+        
+        // Заполняем форму данными
+        document.getElementById("investor-id").value = investorData.id;
+        document.getElementById("investor-name").value = investorData.name;
+        document.getElementById("investor-email").value = investorData.email;
+        document.getElementById("investor-phone").value = investorData.phone;
+        document.getElementById("investor-message").value = investorData.message;
+        document.getElementById("investor-status").value = investorData.status;
+    };
+
+    window.closeInvestorModal = function() {
+        investorModal.style.display = "none";
+        investorForm.reset();
+        currentInvestorId = null;
+    };
+
+    window.deleteInvestorRequest = function() {
+        if (!currentInvestorId) return;
+        
+        if (confirm('Вы уверены, что хотите удалить эту заявку?')) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            fetch(`/admin/investor-requests/${currentInvestorId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Заявка успешно удалена');
+                    window.location.reload();
+                } else {
+                    throw new Error(result.message || 'Ошибка при удалении заявки');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert(error.message);
+            });
+        }
+    };
+
+    // Обработка отправки формы
+    investorForm.onsubmit = async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(result.message);
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Ошибка при сохранении заявки');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert(error.message);
+        }
+    };
+
+    // Закрытие модального окна при клике вне его
+    window.onclick = function(event) {
+        if (event.target === investorModal) {
+            closeInvestorModal();
+        }
+    };
+});
+</script>
+
+<!-- Модальное окно для новостей -->
+<div id="post-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closePostModal()">&times;</span>
+        <h3 id="post-modal-title">Добавить новость</h3>
+        <form id="post-form" method="POST" enctype="multipart/form-data">
+            @csrf
+            <input type="hidden" name="_method" value="POST">
+            <input type="hidden" id="post-id" name="id">
+
+            <div class="form-group">
+                <label for="post-title">Заголовок:</label>
+                <input type="text" id="post-title" name="title" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="post-description">Описание:</label>
+                <textarea id="post-description" name="description" class="form-control" rows="4" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="post-author">Автор:</label>
+                <input type="text" id="post-author" name="author" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="post-date">Дата:</label>
+                <input type="date" id="post-date" name="date" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="post-image">Изображение:</label>
+                <input type="file" id="post-image" name="image" class="form-control" accept="image/*">
+                <div id="current-image-container" style="margin-top: 10px; display: none;">
+                    <img id="current-image-preview" src="" alt="Текущее изображение" style="max-width: 200px;">
+                    <p>Текущее изображение</p>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <button type="submit" id="submit-post-btn" class="btn btn-primary">Сохранить</button>
+                <button type="button" class="btn btn-secondary" onclick="closePostModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Функции для работы с новостями
+document.addEventListener("DOMContentLoaded", function () {
+    const postModal = document.getElementById("post-modal");
+    const postForm = document.getElementById("post-form");
+
+    // Функция для открытия модального окна создания новости
+    window.addPost = function () {
+        postModal.style.display = "block";
+        postForm.reset();
+        document.getElementById("current-image-container").style.display = "none";
+        postForm.action = "/admin/news";
+        document.getElementById("post-modal-title").textContent = "Добавить новость";
+        document.getElementById("submit-post-btn").textContent = "Добавить";
+        postForm.querySelector('input[name="_method"]').value = 'POST';
+    };
+
+    // Функция для редактирования новости
+    window.editPost = function (postData) {
+        console.log('Данные для редактирования:', postData);
+        postModal.style.display = "block";
+        postForm.reset();
+        
+        // Устанавливаем метод и путь
+        postForm.action = `/admin/news/${postData.id}`;
+        const methodInput = postForm.querySelector('input[name="_method"]');
+        if (methodInput) {
+            methodInput.value = 'PUT';
+        } else {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = '_method';
+            input.value = 'PUT';
+            postForm.appendChild(input);
+        }
+        
+        // Добавляем или обновляем CSRF токен
+        const csrfInput = postForm.querySelector('input[name="_token"]');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        if (csrfInput) {
+            csrfInput.value = csrfToken;
+        } else {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = '_token';
+            input.value = csrfToken;
+            postForm.appendChild(input);
+        }
+        
+        // Заполняем форму данными
+        document.getElementById("post-id").value = postData.id;
+        document.getElementById("post-title").value = postData.title || '';
+        document.getElementById("post-description").value = postData.description || '';
+        document.getElementById("post-author").value = postData.author || '';
+        
+        // Форматируем дату для input type="date"
+        const dateObj = postData.date ? new Date(postData.date) : new Date();
+        const formattedDate = dateObj.toISOString().split('T')[0];
+        document.getElementById("post-date").value = formattedDate;
+
+        // Показываем текущее изображение, если оно есть
+        const imageContainer = document.getElementById("current-image-container");
+        const imagePreview = document.getElementById("current-image-preview");
+        if (postData.image) {
+            imageContainer.style.display = "block";
+            imagePreview.src = postData.image.startsWith('http') ? postData.image : '/' + postData.image;
+        } else {
+            imageContainer.style.display = "none";
+        }
+
+        document.getElementById("post-modal-title").textContent = "Редактировать новость";
+        document.getElementById("submit-post-btn").textContent = "Сохранить изменения";
+    };
+
+    // Функция закрытия модального окна
+    window.closePostModal = function () {
+        postModal.style.display = "none";
+        postForm.reset();
+    };
+
+    // Обработка отправки формы
+    postForm.onsubmit = async function (e) {
+        e.preventDefault();
+        
+        // Проверяем заполнение обязательных полей
+        const title = document.getElementById("post-title").value.trim();
+        const description = document.getElementById("post-description").value.trim();
+        const author = document.getElementById("post-author").value.trim();
+        const date = document.getElementById("post-date").value.trim();
+
+        if (!title || !description || !author || !date) {
+            alert("Пожалуйста, заполните все обязательные поля");
+            return;
+        }
+
+        const formData = new FormData(this);
+        const method = formData.get('_method');
+        
+        // Для PUT-запросов добавляем специальное поле
+        if (method === 'PUT') {
+            formData.append('_method', 'PUT');
+        }
+        
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST', // Всегда используем POST для отправки файлов
+                body: formData
+            });
+
+            if (!response.ok) {
+                if (response.status === 419) {
+                    alert('Сессия истекла. Пожалуйста, обновите страницу и попробуйте снова.');
+                    window.location.reload();
+                    return;
+                }
+                throw new Error('Ошибка сервера: ' + response.status);
+            }
+
+            const result = await response.json();
+            console.log('Ответ сервера:', result);
+
+            if (result.success) {
+                alert(result.message);
+                window.location.reload();
+            } else {
+                throw new Error(result.message || "Ошибка при сохранении новости");
+            }
+        } catch (error) {
+            console.error("Ошибка:", error);
+            if (error.message.includes('not valid JSON')) {
+                alert('Ошибка сервера. Пожалуйста, обновите страницу и попробуйте снова.');
+            } else {
+                alert(error.message);
+            }
+        }
+    };
+
+    // Закрытие модального окна при клике вне его
+    window.onclick = function (event) {
+        if (event.target === postModal) {
+            closePostModal();
+        }
+    };
+});
+</script>
 
 </body>
 </html>

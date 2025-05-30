@@ -31,20 +31,17 @@ class UserController extends Controller
             }
 
             // Создаем уникальное имя файла
-            $filename = 'avatar_' . $user->id . '_' . time() . '.jpg';
+            $filename = 'avatar_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
             
-            // Путь для сохранения
-            $path = 'public/avatars/' . $filename;
-
             // Удаляем старый аватар, если он существует
-            if ($user->avatar) {
+            if ($user->avatar && Storage::exists('public/avatars/' . basename($user->avatar))) {
                 Storage::delete('public/avatars/' . basename($user->avatar));
             }
 
             // Сохраняем новый файл
-            Storage::put($path, file_get_contents($file));
+            $path = $file->storeAs('public/avatars', $filename);
 
-            // Обновляем путь к аватару в базе данных
+            // Обновляем путь к аватару в базе данных (сохраняем только относительный путь)
             $user->avatar = 'avatars/' . $filename;
             $user->save();
 
@@ -55,6 +52,7 @@ class UserController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Ошибка при обновлении аватара: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Произошла ошибка при загрузке аватара: ' . $e->getMessage()

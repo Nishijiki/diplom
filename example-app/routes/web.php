@@ -75,12 +75,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::patch('/admin/requests/{id}/status', [RequestController::class, 'updateStatus'])->name('requests.update-status');
     Route::patch('/admin/investor-requests/{id}/status', [InvestorController::class, 'updateStatus'])->name('investor.update-status');
     Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
+    Route::post('/admin/news', [AdminController::class, 'storeNews'])->name('admin.news.store');
+    Route::put('/admin/news/{id}', [AdminController::class, 'updateNews'])->name('admin.news.update');
+    Route::delete('/admin/news/{id}', [AdminController::class, 'deleteNews'])->name('admin.news.destroy');
+    Route::get('/admin/users/{id}', 'App\Http\Controllers\AdminController@getUser')->name('admin.users.get');
+    Route::post('/admin/users/{id}', 'App\Http\Controllers\AdminController@updateUser')->name('admin.users.update');
+    Route::put('/admin/investor-requests/{id}', [AdminController::class, 'updateInvestorRequest'])->name('admin.investor-requests.update');
+    Route::delete('/admin/investor-requests/{id}', [AdminController::class, 'deleteInvestorRequest'])->name('admin.investor-requests.delete');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/update-avatar', [UserController::class, 'updateAvatar'])->name('update.avatar');
+    Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
 });
 
 Route::get('/news/load-more', [NewsController::class, 'index'])->name('news.load-more');
@@ -90,8 +98,6 @@ Route::get('/news/{id}', [NewsController::class, 'show'])->name('news.show');
 Route::get('/personal-account', [PersonalAccountController::class, 'index'])
     ->middleware('auth.check') // Применяем middleware
     ->name('personal.account');
-
-    Route::put('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
 
 Route::post('/document-search', [DocumentSearchController::class, 'search'])->name('document.search');
 Route::get('/document-suggestions', [DocumentSearchController::class, 'getSuggestions'])->name('document.suggestions');
@@ -116,4 +122,11 @@ Route::patch('/admin/investor-requests/{id}/status', [InvestorController::class,
 
     Route::delete('/admin/documents/{id}', [AdminController::class, 'destroy'])->name('admin.documents.destroy');
     Route::post('/admin/documents', [AdminController::class, 'store'])->name('documents.store');
+    Route::put('/admin/documents/{id}', [AdminController::class, 'update'])->name('admin.documents.update');
+
+
+
+    Route::get('/requests/{id}/edit', [RequestController::class, 'edit'])->name('requests.edit');
+    Route::put('/requests/{id}', [RequestController::class, 'update'])->name('requests.update');
+    Route::delete('/requests/{id}', [RequestController::class, 'destroy'])->name('requests.destroy');
 

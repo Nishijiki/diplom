@@ -412,7 +412,7 @@
     </div>
     <div class="article-image">
         <!-- Динамическое изображение -->
-        <img src="{{ $news->image ? (Str::startsWith($news->image, 'img/') ? '/' . $news->image : '/storage/' . $news->image) : '/img/placeholder.jpg' }}" alt="{{ $news->title }}">
+        <img src="{{ $news->image ? asset($news->image) : asset('img/placeholder.jpg') }}" alt="{{ $news->title }}">
     </div>
     <div class="article-content">
         <!-- Динамическое содержимое новости -->
@@ -427,7 +427,7 @@
         @foreach ($recommendedNews as $item)
         <div class="news-item">
             <!-- Динамическое изображение рекомендуемой новости -->
-            <img src="{{ $item->image ? (Str::startsWith($item->image, 'img/') ? '/' . $item->image : '/storage/' . $item->image) : '/img/placeholder.jpg' }}" alt="{{ $item->title }}">
+            <img src="{{ $item->image ? asset($item->image) : asset('img/placeholder.jpg') }}" alt="{{ $item->title }}">
             <!-- Динамический заголовок -->
             <a href="/news/{{ $item->id }}"><h4>{{ $item->title }}</h4></a>
             <!-- Краткое описание -->

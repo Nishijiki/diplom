@@ -553,7 +553,7 @@ footer {
                 });
 
                 newsItem.innerHTML = `
-                    <img src="${item.image ? (item.image.startsWith('img/') ? '/' + item.image : '/storage/' + item.image) : '/img/placeholder.jpg'}" alt="${item.title}">
+                    <img src="${item.image ? '/' + item.image : '/img/placeholder.jpg'}" alt="${item.title}">
                     <p class="date">${date}</p>
                     <a href="/news/${item.id}" class="news-title"><h3>${item.title}</h3></a>
                 `;
@@ -636,7 +636,7 @@ footer {
                     );
 
                     newsItem.innerHTML = `
-                        <img src="${item.image || '/img/placeholder.jpg'}" alt="${item.title}">
+                        <img src="${item.image ? '/' + item.image : '/img/placeholder.jpg'}" alt="${item.title}">
                         <p class="date">${date}</p>
                         <a href="/news/${item.id}" class="news-title"><h3>${title}</h3></a>
                     `;
